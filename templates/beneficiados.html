@@ -1,0 +1,626 @@
+{% extends "base.html" %}
+{% block title %}Beneficiados — ADmilkS{% endblock %}
+
+{% block body %}
+<div class="app-page">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="header-inner">
+      <div class="header-logo-sm">
+        <svg viewBox="0 0 30 30" fill="none"><path d="M15 3C15 3 7 11 7 17C7 21.4 10.6 25 15 25C19.4 25 23 21.4 23 17C23 11 15 3 15 3Z" fill="#29B6D8"/><ellipse cx="15" cy="17" rx="4.5" ry="3.5" fill="white"/><circle cx="13.2" cy="15.8" r="0.8" fill="#29B6D8"/><circle cx="16.8" cy="15.8" r="0.8" fill="#29B6D8"/></svg>
+      </div>
+      <div class="header-title-block">
+        <span class="header-title">ADmilkS</span>
+        <span class="header-role {{ 'role-admin' if is_admin else 'role-op' }}">
+          {{ '⚙ Admin' if is_admin else '👤 Operador' }}
+        </span>
+      </div>
+      <div class="header-actions">
+        <a href="{{ url_for('historico') }}" class="header-btn" title="Histórico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </a>
+        {% if is_admin %}
+        <a href="{{ url_for('usuarios') }}" class="header-btn" title="Usuários">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </a>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="header-btn header-btn-logout" title="Sair">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-content">
+    <div class="content-card">
+
+      <!-- Busca -->
+      <div class="search-bar">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="searchInput" class="search-input"
+               placeholder="Buscar por nome ou código NIS…"
+               value="{{ query }}" oninput="buscarBeneficiarios(this.value)">
+        <button class="search-clear" id="searchClear" onclick="limparBusca()"
+                style="{{ 'display:flex' if query else 'display:none' }}">✕</button>
+      </div>
+
+      <div class="section-title-bar">
+        <h2 class="section-title">Beneficiados</h2>
+        <span class="count-badge" id="countBadge">{{ beneficiarios|length }}</span>
+        <div class="alerta-legend">
+          <span class="dot-amarelo" title="1 semana sem retirada"></span>
+          <span class="dot-vermelho" title="2+ semanas — risco CadÚnico"></span>
+        </div>
+      </div>
+
+      <div class="beneficiarios-list" id="beneficiariosList">
+        {% for b in beneficiarios %}
+        {{ render_card(b) }}
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">🥛</div>
+          <p>Nenhum beneficiário encontrado.</p>
+          {% if is_admin %}<small>Use o botão + para cadastrar.</small>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="bottom-bar">
+    <button class="bottom-btn" onclick="document.getElementById('searchInput').focus()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    </button>
+    {% if is_admin %}
+    <button class="bottom-btn bottom-btn-primary" onclick="abrir('modalCadastro')" title="Novo beneficiário">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    {% else %}
+    <div style="width:56px;height:56px"></div>
+    {% endif %}
+    <a href="{{ url_for('historico') }}" class="bottom-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </a>
+  </div>
+</div>
+
+<!-- ══ MODAL: Cadastrar (admin) ══ -->
+{% if is_admin %}
+<div class="modal-overlay" id="modalCadastro" onclick="fecharOverlay(event,'modalCadastro')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="fechar('modalCadastro')">{% include 'partials/x_btn.svg' %}</button>
+    <h2 class="modal-title">Registrar</h2>
+    <div id="cadErro" class="alert alert-error" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label-dark">NOME: <span class="required">*</span></label>
+      <input type="text" id="cadNome" class="form-input form-input-gray" placeholder="Nome completo">
+    </div>
+    <div class="form-group">
+      <label class="form-label-dark">CÓDIGO NIS: <span class="required">*</span>
+        <span class="form-hint">mín. 11 dígitos</span></label>
+      <input type="text" id="cadCodigo" class="form-input form-input-gray"
+             placeholder="00000000000" maxlength="20" oninput="mascaraNIS(this)" inputmode="numeric">
+      <div class="nis-indicator" id="cadNisIndicator"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label-dark">TELEFONE: <span class="form-hint">opcional</span></label>
+      <input type="tel" id="cadTelefone" class="form-input form-input-gray"
+             placeholder="(00) 00000-0000" oninput="mascaraTel(this)" maxlength="15" inputmode="tel">
+    </div>
+    <div class="form-group form-group-inline">
+      <label class="form-label-dark">COTA DUPLA:</label>
+      <label class="toggle-switch"><input type="checkbox" id="cadCotaDupla"><span class="toggle-track"></span></label>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="registrarBeneficiario()">Registrar</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: Editar (admin) ══ -->
+<div class="modal-overlay" id="modalEditar" onclick="fecharOverlay(event,'modalEditar')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="fechar('modalEditar')">{% include 'partials/x_btn.svg' %}</button>
+    <h2 class="modal-title">Editar</h2>
+    <div id="editErro" class="alert alert-error" style="display:none"></div>
+    <input type="hidden" id="editId">
+    <div class="form-group">
+      <label class="form-label-dark">NOME: <span class="required">*</span></label>
+      <input type="text" id="editNome" class="form-input form-input-gray">
+    </div>
+    <div class="form-group">
+      <label class="form-label-dark">CÓDIGO NIS: <span class="required">*</span>
+        <span class="form-hint">mín. 11 dígitos</span></label>
+      <input type="text" id="editCodigo" class="form-input form-input-gray"
+             maxlength="20" oninput="mascaraNIS(this)" inputmode="numeric">
+      <div class="nis-indicator" id="editNisIndicator"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label-dark">TELEFONE: <span class="form-hint">opcional</span></label>
+      <input type="tel" id="editTelefone" class="form-input form-input-gray"
+             placeholder="(00) 00000-0000" oninput="mascaraTel(this)" maxlength="15" inputmode="tel">
+    </div>
+    <div class="form-group form-group-inline">
+      <label class="form-label-dark">COTA DUPLA:</label>
+      <label class="toggle-switch"><input type="checkbox" id="editCotaDupla"><span class="toggle-track"></span></label>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="salvarEdicao()">Salvar alterações</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: Confirmar Exclusão ══ -->
+<div class="modal-overlay" id="modalExclusao" onclick="fecharOverlay(event,'modalExclusao')">
+  <div class="modal-box modal-box-sm">
+    <h2 class="modal-title modal-title-danger">Excluir</h2>
+    <p class="modal-text">Deseja realmente excluir <strong id="nomeExcluir"></strong>?<br>
+      <small>O histórico de entregas será preservado.</small></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="fechar('modalExclusao')">Cancelar</button>
+      <button class="btn btn-danger" onclick="executarExclusao()">Excluir</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ══ MODAL: Operação / Entrega ══ -->
+<div class="modal-overlay" id="modalOperacao" onclick="fecharOverlay(event,'modalOperacao')">
+  <div class="modal-box modal-box-operacao">
+    <button class="modal-close" onclick="fechar('modalOperacao')">{% include 'partials/x_btn.svg' %}</button>
+    <h2 class="modal-title">Beneficiado</h2>
+
+    <!-- Info -->
+    <div class="op-info">
+      <div class="op-row"><span class="op-label">NOME:</span>   <span class="op-value" id="opNome"></span></div>
+      <div class="op-row"><span class="op-label">CÓDIGO:</span> <span class="op-value" id="opCodigo"></span></div>
+      <div class="op-row" id="opTelRow" style="display:none">
+        <span class="op-label">TEL:</span>
+        <span class="op-value" id="opTelefone"></span>
+      </div>
+    </div>
+
+    <!-- Saldo do mês -->
+    <div class="saldo-card" id="saldoCard">
+      <div class="saldo-header">
+        <span class="saldo-label">Cota do mês</span>
+        <span class="saldo-periodo" id="saldoPeriodo"></span>
+      </div>
+      <div class="saldo-bar-wrap">
+        <div class="saldo-bar" id="saldoBar"></div>
+      </div>
+      <div class="saldo-nums">
+        <span class="saldo-retirado" id="saldoRetirado">—</span>
+        <span class="saldo-disponivel" id="saldoDisponivel">—</span>
+      </div>
+    </div>
+
+    <hr class="op-divider">
+
+    <!-- Controles -->
+    <div class="op-controls">
+      <div class="op-control-group">
+        <label class="op-label">LITROS DE LEITE:</label>
+        <div class="litros-control">
+          <button class="litros-btn" onclick="ajustarLitros(-1)">−</button>
+          <span class="litros-value" id="litrosValue">2</span>
+          <button class="litros-btn" onclick="ajustarLitros(1)">+</button>
+        </div>
+      </div>
+      <div class="op-control-group">
+        <label class="op-label">
+          COTA DUPLA:
+          {% if not is_admin %}<span class="op-locked" title="Apenas admins podem alterar">🔒</span>{% endif %}
+        </label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="opCotaDupla" {% if not is_admin %}disabled{% endif %}>
+          <span class="toggle-track {{ 'toggle-locked' if not is_admin }}"></span>
+        </label>
+      </div>
+    </div>
+    {% if not is_admin %}
+    <p class="op-aviso-operador">⚠ Cota dupla definida pelo administrador. Não pode ser alterada.</p>
+    {% endif %}
+
+    <hr class="op-divider">
+
+    <!-- Canvas assinatura -->
+    <div class="op-assinatura-section">
+      <div class="op-assinatura-header">
+        <label class="op-label">ASSINATURA:</label>
+        <button class="btn-limpar" onclick="limparAssinatura()">Limpar</button>
+      </div>
+      <canvas id="signatureCanvas" class="signature-canvas"></canvas>
+      <div class="signature-line"></div>
+    </div>
+
+    <div id="opErro" class="alert alert-error" style="display:none;margin-top:12px"></div>
+    <button class="btn btn-primary btn-block btn-confirmar" id="btnConfirmar" onclick="confirmarEntrega()">
+      ✓ Confirmar Entrega
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+
+// ── Helpers ──
+function fechar(id) { document.getElementById(id).classList.remove('active'); }
+function abrir(id)  { document.getElementById(id).classList.add('active'); }
+function fecharOverlay(e, id) { if (e.target.id === id) fechar(id); }
+function esc(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,"\\'"); }
+function showToast(msg, tipo='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast toast-${tipo} toast-show`;
+  setTimeout(() => t.classList.remove('toast-show'), 3400);
+}
+
+// ── Máscaras ──
+function mascaraNIS(input) {
+  let v = input.value.replace(/\D/g,'');
+  if (v.length > 11) v = v.slice(0,11);
+  input.value = v;
+  // Indicador visual
+  const indicId = input.id.includes('cad') ? 'cadNisIndicator' : 'editNisIndicator';
+  const ind = document.getElementById(indicId);
+  if (!ind) return;
+  const ok = v.length >= 11;
+  ind.className = 'nis-indicator ' + (ok ? 'nis-ok' : (v.length > 0 ? 'nis-err' : ''));
+  ind.textContent = v.length >= 11 ? `✓ ${v.length} dígitos` : v.length > 0 ? `${v.length}/11 dígitos` : '';
+}
+function mascaraTel(input) {
+  let v = input.value.replace(/\D/g,'');
+  if (v.length > 11) v = v.slice(0,11);
+  if (v.length <= 10) {
+    v = v.replace(/^(\d{2})(\d{4})(\d{0,4})/, (_, a, b, c) => c ? `(${a}) ${b}-${c}` : b ? `(${a}) ${b}` : a ? `(${a}` : '');
+  } else {
+    v = v.replace(/^(\d{2})(\d{5})(\d{0,4})/, (_, a, b, c) => c ? `(${a}) ${b}-${c}` : b ? `(${a}) ${b}` : `(${a}`);
+  }
+  input.value = v;
+}
+
+// ── Alertas ──
+function alertaClass(a) {
+  if (a === 'amarelo') return 'card-alerta-amarelo';
+  if (a === 'vermelho' || a === 'critico') return 'card-alerta-vermelho';
+  return '';
+}
+function alertaIcon(a) {
+  if (a === 'amarelo') return '<span class="alerta-dot amarelo" title="1 semana sem retirada">!</span>';
+  if (a === 'vermelho') return '<span class="alerta-dot vermelho" title="2 semanas — risco CadÚnico">!!</span>';
+  if (a === 'critico')  return '<span class="alerta-dot critico" title="Benefício em risco">✕</span>';
+  return '';
+}
+
+// ── Saldo badge no card ──
+function saldoBadgeHTML(saldo) {
+  const pct = saldo.cota_total > 0 ? Math.round((saldo.retirado / saldo.cota_total) * 100) : 0;
+  let cls = 'saldo-badge-ok';
+  if (pct >= 100) cls = 'saldo-badge-esgotado';
+  else if (pct >= 70) cls = 'saldo-badge-alerta';
+  return `<span class="saldo-badge ${cls}" title="${saldo.retirado}L retirado de ${saldo.cota_total}L">${saldo.saldo}L restantes</span>`;
+}
+
+// ── Busca ──
+async function buscarBeneficiarios(q) {
+  document.getElementById('searchClear').style.display = q ? 'flex' : 'none';
+  const res   = await fetch(`/api/buscar?q=${encodeURIComponent(q)}`);
+  const lista = await res.json();
+  renderLista(lista);
+}
+function limparBusca() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  buscarBeneficiarios('');
+}
+function renderLista(lista) {
+  const c = document.getElementById('beneficiariosList');
+  document.getElementById('countBadge').textContent = lista.length;
+  if (!lista.length) {
+    c.innerHTML = `<div class="empty-state"><div class="empty-icon">🥛</div><p>Nenhum beneficiário encontrado.</p></div>`;
+    return;
+  }
+  c.innerHTML = lista.map(b => cardHTML(b)).join('');
+}
+function cardHTML(b) {
+  const ac  = alertaClass(b.alerta);
+  const ai  = alertaIcon(b.alerta);
+  const sb  = saldoBadgeHTML(b.saldo);
+  const tel = b.telefone ? `<div class="card-tel">📞 ${esc(b.telefone)}</div>` : '';
+  const editBtn = IS_ADMIN ? `
+    <button class="card-action-btn card-edit-btn" title="Editar"
+            onclick="event.stopPropagation();abrirEdicao(${b.id},'${esc(b.nome)}','${esc(b.codigo)}','${esc(b.telefone||'')}',${b.cota_dupla})">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+    </button>` : '';
+  const delBtn = IS_ADMIN ? `
+    <button class="card-action-btn card-delete-btn" title="Excluir"
+            onclick="event.stopPropagation();confirmarExclusao(${b.id},'${esc(b.nome)}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6"/><path d="M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/></svg>
+    </button>` : '';
+  return `
+  <div class="beneficiario-card ${ac}" id="card-${b.id}"
+       onclick="abrirOperacao(${b.id},'${esc(b.nome)}','${esc(b.codigo)}','${esc(b.telefone||'')}',${b.cota_dupla})">
+    <div class="card-info">
+      <div class="card-row">${ai}<span class="card-label">NOME:</span>
+        <span class="card-nome">${esc(b.nome)}</span>
+        ${b.cota_dupla ? '<span class="badge-dupla">DUPLA</span>' : ''}
+      </div>
+      <div class="card-row">
+        <span class="card-label">CÓDIGO:</span><span class="card-codigo">${esc(b.codigo)}</span>
+        ${sb}
+      </div>
+      ${tel}
+    </div>
+    <div class="card-actions">${editBtn}${delBtn}</div>
+  </div>`;
+}
+
+// ── Cadastro ──
+function abrirModalCadastro() {
+  ['cadNome','cadCodigo','cadTelefone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cadCotaDupla').checked = false;
+  document.getElementById('cadErro').style.display = 'none';
+  document.getElementById('cadNisIndicator').textContent = '';
+  abrir('modalCadastro');
+}
+async function registrarBeneficiario() {
+  const nome  = document.getElementById('cadNome').value.trim();
+  const cod   = document.getElementById('cadCodigo').value.replace(/\D/g,'');
+  const tel   = document.getElementById('cadTelefone').value.trim();
+  const dupla = document.getElementById('cadCotaDupla').checked;
+  const err   = document.getElementById('cadErro');
+
+  if (!nome)       { mostraErro(err,'Nome é obrigatório.'); return; }
+  if (cod.length < 11) { mostraErro(err,'Código NIS deve ter mínimo 11 dígitos.'); return; }
+  err.style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('nome', nome); fd.append('codigo', cod);
+  if (tel)  fd.append('telefone', tel);
+  if (dupla) fd.append('cota_dupla', '1');
+  const r = await fetch('/beneficiarios/adicionar', { method:'POST', body:fd });
+  const d = await r.json();
+  if (d.ok) {
+    fechar('modalCadastro');
+    buscarBeneficiarios(document.getElementById('searchInput').value);
+    showToast('✓ Beneficiário registrado!');
+  } else { mostraErro(err, d.erro); }
+}
+
+// ── Edição ──
+function abrirEdicao(id, nome, cod, tel, dupla) {
+  document.getElementById('editId').value = id;
+  document.getElementById('editNome').value = nome;
+  document.getElementById('editCodigo').value = cod;
+  document.getElementById('editTelefone').value = tel;
+  document.getElementById('editCotaDupla').checked = !!dupla;
+  document.getElementById('editErro').style.display = 'none';
+  // Atualiza indicador NIS
+  const indEl = document.getElementById('editNisIndicator');
+  const digits = cod.replace(/\D/g,'');
+  indEl.className = 'nis-indicator ' + (digits.length >= 11 ? 'nis-ok' : 'nis-err');
+  indEl.textContent = `${digits.length}/11 dígitos`;
+  abrir('modalEditar');
+}
+async function salvarEdicao() {
+  const id    = document.getElementById('editId').value;
+  const nome  = document.getElementById('editNome').value.trim();
+  const cod   = document.getElementById('editCodigo').value.replace(/\D/g,'');
+  const tel   = document.getElementById('editTelefone').value.trim();
+  const dupla = document.getElementById('editCotaDupla').checked;
+  const err   = document.getElementById('editErro');
+
+  if (!nome)       { mostraErro(err,'Nome é obrigatório.'); return; }
+  if (cod.length < 11) { mostraErro(err,'Código NIS deve ter mínimo 11 dígitos.'); return; }
+  err.style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('nome', nome); fd.append('codigo', cod);
+  if (tel) fd.append('telefone', tel);
+  if (dupla) fd.append('cota_dupla', '1');
+  const r = await fetch(`/beneficiarios/editar/${id}`, { method:'POST', body:fd });
+  const d = await r.json();
+  if (d.ok) {
+    fechar('modalEditar');
+    buscarBeneficiarios(document.getElementById('searchInput').value);
+    showToast('✓ Beneficiário atualizado!');
+  } else { mostraErro(err, d.erro); }
+}
+
+// ── Exclusão ──
+let _deleteId = null;
+function confirmarExclusao(id, nome) {
+  _deleteId = id;
+  document.getElementById('nomeExcluir').textContent = nome;
+  abrir('modalExclusao');
+}
+async function executarExclusao() {
+  const r = await fetch(`/beneficiarios/excluir/${_deleteId}`, { method:'POST' });
+  const d = await r.json();
+  if (d.ok) {
+    fechar('modalExclusao');
+    buscarBeneficiarios(document.getElementById('searchInput').value);
+    showToast('Beneficiário excluído.','info');
+  }
+}
+
+// ── Operação ──
+let _opId = null, _litros = 2, _saldoAtual = 15;
+let _isDrawing = false, _ctx = null;
+
+async function abrirOperacao(id, nome, cod, tel, dupla) {
+  _opId   = id;
+  _litros = dupla ? 4 : 2;
+  document.getElementById('opNome').textContent    = nome;
+  document.getElementById('opCodigo').textContent  = cod;
+  document.getElementById('litrosValue').textContent = _litros;
+  document.getElementById('opCotaDupla').checked   = !!dupla;
+  document.getElementById('opErro').style.display  = 'none';
+
+  // Telefone
+  const telRow = document.getElementById('opTelRow');
+  if (tel) {
+    document.getElementById('opTelefone').textContent = tel;
+    telRow.style.display = 'flex';
+  } else { telRow.style.display = 'none'; }
+
+  abrir('modalOperacao');
+  setTimeout(() => { initCanvas(); limparAssinatura(); }, 80);
+
+  // Carrega saldo
+  await carregarSaldo(id, dupla);
+}
+
+async function carregarSaldo(id, dupla) {
+  try {
+    const r = await fetch(`/api/saldo/${id}`);
+    const d = await r.json();
+    if (!d.ok) return;
+    _saldoAtual = d.saldo;
+    const pct = d.cota_total > 0 ? Math.round((d.retirado / d.cota_total)*100) : 0;
+    const bar = document.getElementById('saldoBar');
+    bar.style.width = `${Math.min(pct,100)}%`;
+    bar.className = 'saldo-bar ' + (pct>=100?'bar-esgotado':pct>=70?'bar-alerta':'bar-ok');
+
+    // Mês atual
+    const now = new Date();
+    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    document.getElementById('saldoPeriodo').textContent = `${meses[now.getMonth()]}/${now.getFullYear()}`;
+    document.getElementById('saldoRetirado').textContent  = `Retirado: ${d.retirado}L`;
+    document.getElementById('saldoDisponivel').textContent = `Disponível: ${d.saldo}L de ${d.cota_total}L`;
+
+    // Limita litros ao saldo
+    if (_litros > d.saldo) { _litros = Math.max(1, d.saldo); document.getElementById('litrosValue').textContent = _litros; }
+
+    // Se esgotado, bloqueia botão
+    const btn = document.getElementById('btnConfirmar');
+    if (d.saldo <= 0) {
+      btn.disabled = true;
+      btn.textContent = '⛔ Cota do mês esgotada';
+      btn.classList.add('btn-disabled');
+      showErro('opErro', `Cota mensal esgotada: ${d.retirado}L de ${d.cota_total}L já retirados.`);
+    } else {
+      btn.disabled = false;
+      btn.textContent = '✓ Confirmar Entrega';
+      btn.classList.remove('btn-disabled');
+    }
+  } catch(e) { console.warn('Falha ao carregar saldo:', e); }
+}
+
+function ajustarLitros(delta) {
+  const novo = Math.max(1, Math.min(_litros + delta, _saldoAtual));
+  _litros = novo;
+  document.getElementById('litrosValue').textContent = _litros;
+  // Avisa se chegou no limite
+  if (_litros >= _saldoAtual && _saldoAtual > 0) showToast(`Limite: ${_saldoAtual}L disponíveis`,'info');
+}
+
+// Canvas
+function initCanvas() {
+  const cv = document.getElementById('signatureCanvas');
+  const pw = cv.parentElement.getBoundingClientRect().width - 32;
+  cv.width  = Math.floor(pw);
+  cv.height = 160;
+  const n = cv.cloneNode(true);
+  cv.parentNode.replaceChild(n, cv);
+  const c2 = document.getElementById('signatureCanvas');
+  _ctx = c2.getContext('2d');
+  _ctx.strokeStyle = '#1a1a2e'; _ctx.lineWidth = 2.5;
+  _ctx.lineCap = 'round'; _ctx.lineJoin = 'round';
+
+  c2.addEventListener('mousedown', e => { _isDrawing=true; _ctx.beginPath(); const p=pos(e,c2); _ctx.moveTo(p.x,p.y); });
+  c2.addEventListener('mousemove', e => { if(!_isDrawing) return; const p=pos(e,c2); _ctx.lineTo(p.x,p.y); _ctx.stroke(); });
+  c2.addEventListener('mouseup',    () => _isDrawing=false);
+  c2.addEventListener('mouseleave', () => _isDrawing=false);
+  c2.addEventListener('touchstart', e => { e.preventDefault(); _isDrawing=true; _ctx.beginPath(); const p=pos(e.touches[0],c2); _ctx.moveTo(p.x,p.y); }, {passive:false});
+  c2.addEventListener('touchmove',  e => { e.preventDefault(); const p=pos(e.touches[0],c2); _ctx.lineTo(p.x,p.y); _ctx.stroke(); }, {passive:false});
+  c2.addEventListener('touchend',   e => { e.preventDefault(); _isDrawing=false; }, {passive:false});
+}
+function pos(e,cv) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function limparAssinatura() { const cv=document.getElementById('signatureCanvas'); if(_ctx) _ctx.clearRect(0,0,cv.width,cv.height); }
+function canvasVazio() {
+  const cv=document.getElementById('signatureCanvas');
+  return !_ctx || !_ctx.getImageData(0,0,cv.width,cv.height).data.some(v=>v!==0);
+}
+
+async function confirmarEntrega() {
+  const err = document.getElementById('opErro');
+  if (canvasVazio()) { showErro('opErro','Por favor, colete a assinatura do beneficiário.'); return; }
+  err.style.display = 'none';
+  const cv = document.getElementById('signatureCanvas');
+  const btn = document.getElementById('btnConfirmar');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+
+  const r = await fetch('/api/confirmar-entrega', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      id_beneficiario: _opId, litros: _litros,
+      cota_dupla: document.getElementById('opCotaDupla').checked,
+      assinatura_base64: cv.toDataURL('image/png')
+    })
+  });
+  const d = await r.json();
+  btn.disabled = false; btn.textContent = '✓ Confirmar Entrega';
+
+  if (d.ok) {
+    fechar('modalOperacao');
+    buscarBeneficiarios(document.getElementById('searchInput').value);
+    const src = d.fonte_timestamp === 'api' ? '🌐 Horário oficial' : '⏱ Horário local';
+    showToast(`✓ Entrega registrada! ${src} · Saldo restante: ${d.saldo_restante}L`);
+  } else { showErro('opErro', d.erro); }
+}
+
+function mostraErro(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+function showErro(id, msg)   { mostraErro(document.getElementById(id), msg); }
+
+// Enter nos modais
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (document.getElementById('modalCadastro')?.classList.contains('active')) registrarBeneficiario();
+  if (document.getElementById('modalEditar')?.classList.contains('active'))   salvarEdicao();
+});
+</script>
+{% endblock %}
+
+{% macro render_card(b) %}
+<div class="beneficiario-card
+  {{ 'card-alerta-amarelo' if b.alerta=='amarelo' else ('card-alerta-vermelho' if b.alerta in ('vermelho','critico') else '') }}"
+  id="card-{{ b.id }}"
+  onclick="abrirOperacao({{ b.id }},'{{ b.nome|replace("'","\\'") }}','{{ b.codigo }}','{{ b.telefone or '' }}',{{ b.cota_dupla }})">
+  <div class="card-info">
+    <div class="card-row">
+      {% if b.alerta=='amarelo' %}<span class="alerta-dot amarelo" title="1 semana">!</span>
+      {% elif b.alerta=='vermelho' %}<span class="alerta-dot vermelho" title="2 semanas">!!</span>
+      {% elif b.alerta=='critico'  %}<span class="alerta-dot critico"  title="Crítico">✕</span>
+      {% endif %}
+      <span class="card-label">NOME:</span>
+      <span class="card-nome">{{ b.nome }}</span>
+      {% if b.cota_dupla %}<span class="badge-dupla">DUPLA</span>{% endif %}
+    </div>
+    <div class="card-row">
+      <span class="card-label">CÓDIGO:</span>
+      <span class="card-codigo">{{ b.codigo }}</span>
+      {% set pct = ((b.saldo.retirado / b.saldo.cota_total * 100) | int) if b.saldo.cota_total else 0 %}
+      <span class="saldo-badge {{ 'saldo-badge-esgotado' if pct>=100 else ('saldo-badge-alerta' if pct>=70 else 'saldo-badge-ok') }}"
+            title="{{ b.saldo.retirado }}L retirado de {{ b.saldo.cota_total }}L">
+        {{ b.saldo.saldo }}L rest.
+      </span>
+    </div>
+    {% if b.telefone %}
+    <div class="card-tel">📞 {{ b.telefone }}</div>
+    {% endif %}
+  </div>
+  <div class="card-actions">
+    {% if is_admin %}
+    <button class="card-action-btn card-edit-btn" title="Editar"
+            onclick="event.stopPropagation();abrirEdicao({{ b.id }},'{{ b.nome|replace("'","\\'") }}','{{ b.codigo }}','{{ b.telefone or "" }}',{{ b.cota_dupla }})">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+    </button>
+    <button class="card-action-btn card-delete-btn" title="Excluir"
+            onclick="event.stopPropagation();confirmarExclusao({{ b.id }},'{{ b.nome|replace("'","\\'") }}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6"/><path d="M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/></svg>
+    </button>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

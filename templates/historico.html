@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Histórico — ADmilkS{% endblock %}
+
+{% block body %}
+<div class="app-page">
+  <div class="app-header">
+    <div class="header-inner">
+      <a href="{{ url_for('beneficiados') }}" class="header-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </a>
+      <span class="header-title">Histórico & Alertas</span>
+      <div style="width:36px"></div>
+    </div>
+  </div>
+
+  <div class="app-content">
+    <div class="content-card">
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <a href="{{ url_for('historico', modo='retiradas', mes=mes) }}"
+           class="tab {{ 'tab-active' if modo=='retiradas' }}">📋 Retiradas</a>
+        <a href="{{ url_for('historico', modo='alertas', mes=mes) }}"
+           class="tab {{ 'tab-active' if modo=='alertas' }}">
+          ⚠ Alertas{% if total_amarelo+total_vermelho>0 %}<span class="tab-badge">{{ total_amarelo+total_vermelho }}</span>{% endif %}
+        </a>
+        {% if is_admin %}
+        <a href="{{ url_for('historico', modo='pdf', mes=mes) }}"
+           class="tab {{ 'tab-active' if modo=='pdf' }}">📄 Relatório PDF</a>
+        {% endif %}
+      </div>
+
+      {% if modo == 'retiradas' %}
+      <!-- ── ABA: RETIRADAS ── -->
+      <div class="section-title-bar" style="margin-top:16px">
+        <h2 class="section-title">Entregas registradas</h2>
+        <span class="count-badge">{{ retiradas|length }}</span>
+      </div>
+      {% if retiradas %}
+      <div class="historico-list">
+        {% for r in retiradas %}
+        <div class="historico-card">
+          <div class="historico-info">
+            <div class="historico-nome">{{ r.nome_beneficiario }}</div>
+            <div class="historico-meta">
+              <span class="historico-data">{{ r.data_entrega[:16] }}</span>
+              <span class="historico-litros">{{ r.litros }}L</span>
+              {% if r.cota_dupla %}<span class="badge-dupla">DUPLA</span>{% endif %}
+              {% if r.fonte_timestamp == 'api' %}<span class="badge-api" title="Horário oficial Brasília">🌐</span>
+              {% else %}<span class="badge-local" title="Horário local">⏱</span>{% endif %}
+              {% if r.nome_op %}<span class="historico-op">por {{ r.nome_op }}</span>{% endif %}
+            </div>
+          </div>
+          {% if r.assinatura_base64 %}
+          <div class="historico-assinatura">
+            <img src="{{ r.assinatura_base64 }}" alt="Assinatura" class="assinatura-thumb"
+                 onclick="verAssinatura('{{ r.assinatura_base64 }}','{{ r.nome_beneficiario }}')">
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state"><div class="empty-icon">📋</div><p>Nenhuma entrega registrada ainda.</p></div>
+      {% endif %}
+
+      {% elif modo == 'alertas' %}
+      <!-- ── ABA: ALERTAS ── -->
+      <div class="alertas-resumo">
+        <div class="resumo-card resumo-ok"><div class="resumo-num">{{ total_ok }}</div><div class="resumo-label">Em dia</div></div>
+        <div class="resumo-card resumo-amarelo"><div class="resumo-num">{{ total_amarelo }}</div><div class="resumo-label">1 semana</div></div>
+        <div class="resumo-card resumo-vermelho"><div class="resumo-num">{{ total_vermelho }}</div><div class="resumo-label">2+ semanas</div></div>
+      </div>
+      <div class="cadunico-info">
+        <div class="cadunico-titulo">📜 Regras CadÚnico — Suspensão por Inatividade</div>
+        <div class="cadunico-regras">
+          <div class="regra-item regra-ok"><span class="regra-cor"></span><div><strong>0–6 dias</strong> — Em dia. Retirada dentro do prazo semanal.</div></div>
+          <div class="regra-item regra-amarelo"><span class="regra-cor"></span><div><strong>7–13 dias ⚠</strong> — 1 semana sem retirada. Contato recomendado.</div></div>
+          <div class="regra-item regra-vermelho"><span class="regra-cor"></span><div><strong>14–20 dias 🔴</strong> — 2 distribuições perdidas. Risco de suspensão. Notificação obrigatória.</div></div>
+          <div class="regra-item regra-critico"><span class="regra-cor"></span><div><strong>21+ dias ✕</strong> — Benefício em risco de cancelamento. Vaga disponível para redistribuição pela lista de espera do CadÚnico.</div></div>
+        </div>
+      </div>
+      {% if alertas %}
+      <div class="section-title-bar" style="margin-top:20px">
+        <h2 class="section-title">Em alerta</h2>
+        <span class="count-badge" style="background:#e74c3c">{{ alertas|length }}</span>
+      </div>
+      <div class="alertas-list">
+        {% for b in alertas %}
+        <div class="alerta-card alerta-{{ b.alerta }}">
+          <div class="alerta-left">
+            <div class="alerta-nome">{{ b.nome }}</div>
+            <div class="alerta-meta">NIS: <strong>{{ b.codigo }}</strong>{% if b.cota_dupla %} · <span class="badge-dupla">DUPLA</span>{% endif %}</div>
+            <div class="alerta-dias">
+              {% if b.ultima_retirada %}Última retirada: {{ b.ultima_retirada[:10] }} ({{ b.dias_sem_retirada }} dias)
+              {% else %}Nunca retirou (cadastrado há {{ b.dias_sem_retirada }} dias){% endif %}
+            </div>
+          </div>
+          <div class="alerta-badge-wrap">
+            {% if b.alerta=='amarelo' %}<span class="alerta-tag tag-amarelo">1 sem.</span>
+            {% elif b.alerta=='vermelho' %}<span class="alerta-tag tag-vermelho">Risco</span>
+            {% else %}<span class="alerta-tag tag-critico">Crítico</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state" style="margin-top:24px"><div class="empty-icon">✅</div><p>Todos os beneficiários estão em dia!</p></div>
+      {% endif %}
+
+      {% elif modo == 'pdf' and is_admin %}
+      <!-- ── ABA: RELATÓRIO PDF ── -->
+      <div class="pdf-section">
+        <div class="pdf-header-block">
+          <div class="pdf-icon">📄</div>
+          <h3 class="pdf-titulo">Relatório Oficial de Entregas</h3>
+          <p class="pdf-desc">Gere o comprovante mensal de distribuição de leite para prestação de contas ao governo. O documento inclui nome, código NIS, quantidade retirada, data e assinatura digital de cada beneficiário.</p>
+        </div>
+
+        <div class="pdf-filtro">
+          <label class="form-label-dark">SELECIONAR MÊS:</label>
+          <div class="pdf-mes-control">
+            <input type="month" id="mesSelecionado" class="form-input form-input-gray"
+                   value="{{ mes }}" max="{{ now_mes }}">
+          </div>
+        </div>
+
+        <div class="pdf-preview" id="pdfPreview">
+          <!-- Carregado via JS -->
+          <div class="pdf-loading">Selecione o mês e clique em "Gerar PDF"</div>
+        </div>
+
+        <div class="pdf-actions">
+          <button class="btn btn-primary btn-block" onclick="gerarPDF()" id="btnGerarPDF">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17a3 3 0 003 3h12a3 3 0 003-3v-1"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v8"/></svg>
+            Gerar e Baixar PDF
+          </button>
+        </div>
+
+        <div class="pdf-info-box">
+          <strong>Estrutura do documento:</strong>
+          <ul>
+            <li>Cabeçalho com nome da organização e período</li>
+            <li>Tabela com Nº · Nome · Código NIS · Litros · Data · Assinatura Digital</li>
+            <li>Totais: quantidade de beneficiários e litros distribuídos</li>
+            <li>Espaço para assinatura física do responsável e supervisor</li>
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal assinatura -->
+<div class="modal-overlay" id="modalAssinatura" onclick="this.classList.remove('active')">
+  <div class="modal-box" style="max-width:380px;text-align:center">
+    <h3 class="modal-title" id="modalAssinaturaNome" style="font-size:1.2rem;margin-bottom:12px"></h3>
+    <img id="modalAssinaturaImg" src="" alt="Assinatura" style="max-width:100%;border:1px solid #eee;border-radius:8px">
+  </div>
+</div>
+
+<script>
+function verAssinatura(src, nome) {
+  document.getElementById('modalAssinaturaNome').textContent = nome;
+  document.getElementById('modalAssinaturaImg').src = src;
+  document.getElementById('modalAssinatura').classList.add('active');
+}
+
+function gerarPDF() {
+  const mes = document.getElementById('mesSelecionado')?.value;
+  if (!mes) { alert('Selecione o mês.'); return; }
+  const btn = document.getElementById('btnGerarPDF');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Gerando PDF…';
+  // Abre em nova aba (download automático)
+  window.open(`/pdf/relatorio?mes=${mes}`, '_blank');
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17a3 3 0 003 3h12a3 3 0 003-3v-1"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v8"/></svg> Gerar e Baixar PDF';
+  }, 3000);
+}
+
+// Define o mês máximo como mês atual
+const now = new Date();
+const maxMes = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+const mesInput = document.getElementById('mesSelecionado');
+if (mesInput) {
+  mesInput.max = maxMes;
+  if (!mesInput.value) mesInput.value = maxMes;
+}
+</script>
+{% endblock %}

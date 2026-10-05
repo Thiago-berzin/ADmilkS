@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Login — ADmilkS{% endblock %}
+
+{% block body %}
+<div class="login-page">
+  <!-- Logo área branca -->
+  <div class="login-logo-area">
+    <div class="login-logo">
+      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="40" cy="40" r="38" stroke="#29B6D8" stroke-width="3"/>
+        <!-- Gota de leite -->
+        <path d="M40 18 C40 18 26 32 26 43 C26 51.3 32.3 58 40 58 C47.7 58 54 51.3 54 43 C54 32 40 18 40 18Z"
+              fill="#29B6D8" opacity="0.9"/>
+        <!-- Cabeça de vaca estilizada -->
+        <ellipse cx="40" cy="43" rx="9" ry="7" fill="white"/>
+        <circle cx="37" cy="41" r="1.5" fill="#29B6D8"/>
+        <circle cx="43" cy="41" r="1.5" fill="#29B6D8"/>
+        <ellipse cx="40" cy="45" rx="3" ry="2" fill="#e0f4f9"/>
+        <!-- Chifres -->
+        <path d="M32 37 Q30 32 27 33" stroke="#29B6D8" stroke-width="2" stroke-linecap="round"/>
+        <path d="M48 37 Q50 32 53 33" stroke="#29B6D8" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <p class="logo-label">ADmilkS</p>
+  </div>
+
+  <!-- Painel azul com form -->
+  <div class="login-panel">
+    <div class="login-milk-drip">
+      <svg viewBox="0 0 400 80" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0,0 L0,40 Q30,70 60,40 Q90,10 120,50 Q150,80 180,45 Q210,15 240,55 Q270,80 300,40 Q330,10 360,50 Q380,65 400,40 L400,0 Z"
+              fill="white"/>
+        <circle cx="30" cy="58" r="8" fill="white"/>
+        <circle cx="22" cy="72" r="4" fill="white"/>
+      </svg>
+    </div>
+
+    <div class="login-form-wrapper">
+      <h1 class="login-title">Cadastro</h1>
+      <p class="login-subtitle">cadastre</p>
+
+      {% if error %}
+      <div class="alert alert-error">{{ error }}</div>
+      {% endif %}
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+        <div class="form-group">
+          <label class="form-label">USUÁRIO</label>
+          <input type="email" name="email" class="form-input"
+                 placeholder="seu@email.com"
+                 value="{{ request.form.get('email', '') }}"
+                 required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">SENHA</label>
+          <div class="input-password-wrapper">
+            <input type="password" name="senha" id="senhaInput"
+                   class="form-input" placeholder="••••••••"
+                   required autocomplete="current-password">
+            <button type="button" class="toggle-senha" onclick="toggleSenha()">
+              <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-white btn-block">
+          <span>Entrar</span>
+        </button>
+      </form>
+
+      <a href="{{ url_for('esqueceu_senha') }}" class="forgot-link">Esqueceu a senha?</a>
+
+      <p class="login-hint">
+        <small>Teste: admin@admilks.com / admin123</small>
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleSenha() {
+  const input = document.getElementById('senhaInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+</script>
+{% endblock %}
