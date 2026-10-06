@@ -43,5 +43,6 @@ Interface para selecionar e remover o cadastro de um beneficiário[cite: 7].
 
 ### 4. Operação e Assinatura
 Tela de validação da entrega de leite com campo para recolhimento da assinatura[cite: 9].
+
 <img width="270" height="582" alt="image" src="https://github.com/user-attachments/assets/b8f57833-a93b-42bb-9152-62ac26edabc2" />
 
