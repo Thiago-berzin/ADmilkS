@@ -26,7 +26,7 @@ Abaixo estão as interfaces principais desenhadas para o protótipo:
 ### 1. Tela de Login
 Página inicial para acesso ao sistema[cite: 2].
 
-<img width="203" height="442" alt="image" src="https://github.com/user-attachments/assets/7c61a5d2-4fde-49d8-9723-435c56425e11" />
+<img width="272" height="587" alt="image" src="https://github.com/user-attachments/assets/d3b61f1b-3501-4e75-84b8-cc656198903b" />
 
 
 ### 2. Lista de Beneficiados
@@ -43,4 +43,5 @@ Interface para selecionar e remover o cadastro de um beneficiário[cite: 7].
 
 ### 4. Operação e Assinatura
 Tela de validação da entrega de leite com campo para recolhimento da assinatura[cite: 9].
+<img width="270" height="582" alt="image" src="https://github.com/user-attachments/assets/b8f57833-a93b-42bb-9152-62ac26edabc2" />
 
