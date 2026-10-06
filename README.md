@@ -1,5 +1,8 @@
 # Viva Leite - Sistema de Gestão (Protótipo)
 
+<img width="820" height="522" alt="image" src="https://github.com/user-attachments/assets/ac21dbdc-f9de-4a97-acb9-42588c7454c5" />
+
+
 Este é um protótipo de aplicativo/sistema web desenvolvido para auxiliar na administração e distribuição do programa "Viva Leite"[cite: 2]. O sistema permite que administradores gerenciem os beneficiários e registrem as operações de entrega de leite[cite: 3, 9].
 
 ## 🛠️ Estrutura e Tecnologias do Projeto
